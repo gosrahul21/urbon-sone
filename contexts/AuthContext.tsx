@@ -1,13 +1,25 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi, User } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/client';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { authApi, User } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
+import { router } from "expo-router";
+
+interface VerifyOtpPayload {
+  phoneNo: string;
+  otp: string;
+}
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, phone?: string) => Promise<void>;
+  requestOtp: (phone: string) => Promise<void>;
+  verifyOtp: (payload: VerifyOtpPayload) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
   clearError: () => void;
@@ -20,62 +32,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for stored auth on mount
   useEffect(() => {
-    checkAuth();
+    // checkAuth();
+    logout();
+    // router.replace("/(auth)/register");
   }, []);
-
+ 
   const checkAuth = async () => {
     try {
       setIsLoading(true);
       const token = await authApi.getStoredToken();
+      const storedUser = await authApi.getStoredUser();
       
-      if (token) {
-        // Verify token is still valid
-        const userData = await authApi.verifyToken();
-        if (userData) {
-          setUser(userData);
-        }
+      if (token && storedUser) {
+        setUser(storedUser);
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
+    } catch (err) {
+      console.error("Auth check failed:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  // STEP 1: Request OTP
+  const requestOtp = async (phoneNo: string) => {
     try {
       setIsLoading(true);
       setError(null);
-      // const response = await authApi.login({ email, password });
-      // setUser(response.user);
 
-      setUser({
-        id: '1',
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        phone: '1234567890',
-        avatar: 'https://via.placeholder.com/150',
-      });
+      await authApi.requestOTP({ phoneNo });
     } catch (err) {
       const apiError = err as ApiError;
-      setError(apiError.message || 'Login failed. Please try again.');
+      setError(apiError.message || "Failed to send OTP");
       throw err;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const register = async (name: string, email: string, password: string, phone?: string) => {
+  // STEP 2: Verify OTP
+  const verifyOtp = async ({ phoneNo, otp }: VerifyOtpPayload) => {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await authApi.register({ name, email, password, phone });
-      setUser(response.user);
+
+      const response = await authApi.verifyOTP({
+        phoneNo,
+        otp,
+      });
+
+      /**
+       * Expected backend response:
+       * {
+       *   accessToken,
+       *   refreshToken,
+       *   isNewUser
+       * }
+       */
+
+      // await authApi.storeTokens(response.accessToken, response.refreshToken);
+
+      // decode token or call /me later
+      const user: any = response.user;
+      await authApi.storeUser(user);
+      setUser(response.user!);
+      if (response.user) router.replace("/(tabs)");
+      else router.replace("/(auth)/register");
+
+      return;
     } catch (err) {
       const apiError = err as ApiError;
-      setError(apiError.message || 'Registration failed. Please try again.');
+      setError(apiError.message || "Invalid OTP");
       throw err;
     } finally {
       setIsLoading(false);
@@ -87,16 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       await authApi.logout();
       setUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (err) {
+      console.error("Logout failed:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const clearError = () => {
-    setError(null);
-  };
+  const clearError = () => setError(null);
 
   return (
     <AuthContext.Provider
@@ -104,12 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
-        login,
-        register,
+        requestOtp,
+        verifyOtp,
         logout,
         error,
         clearError,
-      }}>
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -117,9 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 }
-

@@ -1,7 +1,13 @@
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import axios, {
+  AxiosInstance,
+  AxiosError,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from "axios";
+import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://mora-unused-jada.ngrok-free.dev";
 
 class ApiClient {
   private client: AxiosInstance;
@@ -13,7 +19,7 @@ class ApiClient {
       baseURL: API_BASE_URL,
       timeout: 30000,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -25,12 +31,13 @@ class ApiClient {
     this.client.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         try {
-          const token = await SecureStore.getItemAsync('auth_token');
+          const auth_token = await SecureStore.getItemAsync("auth_token");
+          const token = JSON.parse(auth_token || "{}").accessToken;
           if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
           }
         } catch (error) {
-          console.error('Error getting token:', error);
+          console.error("Error getting token:", error);
         }
         return config;
       },
@@ -43,18 +50,20 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
-        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+        const originalRequest = error.config as InternalAxiosRequestConfig & {
+          _retry?: boolean;
+        };
 
         // Handle 401 Unauthorized - Clear token and redirect to login
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          await SecureStore.deleteItemAsync('auth_token');
-          await SecureStore.deleteItemAsync('user_data');
-          
+          await SecureStore.deleteItemAsync("auth_token");
+          await SecureStore.deleteItemAsync("user_data");
+
           // Emit event for auth state change (will be handled by context)
           // Note: In React Native, we'll use a different mechanism for events
           // The AuthContext will handle this through its own state management
-          
+
           return Promise.reject(error);
         }
 
@@ -67,11 +76,11 @@ class ApiClient {
         ) {
           this.retryCount++;
           originalRequest._retry = true;
-          
+
           // Exponential backoff
           const delay = Math.pow(2, this.retryCount) * 1000;
           await new Promise((resolve) => setTimeout(resolve, delay));
-          
+
           return this.client(originalRequest);
         }
 
@@ -85,20 +94,21 @@ class ApiClient {
     if (error.response) {
       // Server responded with error
       return {
-        message: error.response.data?.message || error.message || 'An error occurred',
+        message:
+          error.response.data?.message || error.message || "An error occurred",
         status: error.response.status,
         data: error.response.data,
       };
     } else if (error.request) {
       // Request made but no response
       return {
-        message: 'Network error. Please check your connection.',
+        message: "Network error. Please check your connection.",
         status: 0,
       };
     } else {
       // Error setting up request
       return {
-        message: error.message || 'An unexpected error occurred',
+        message: error.message || "An unexpected error occurred",
         status: 0,
       };
     }
@@ -157,4 +167,3 @@ export interface ApiError {
 }
 
 export const apiClient = new ApiClient();
-

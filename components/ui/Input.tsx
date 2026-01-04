@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   TextInput,
@@ -6,9 +6,9 @@ import {
   StyleSheet,
   TextInputProps,
   TouchableOpacity,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -37,7 +37,11 @@ export function Input({
 
   return (
     <View style={styles.container}>
-      {label && <Text style={[styles.label, { color: theme.colors.text }]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: theme.colors.text }]}>
+          {label}
+        </Text>
+      )}
       <View
         style={[
           styles.inputContainer,
@@ -49,7 +53,8 @@ export function Input({
               ? theme.colors.primary
               : theme.colors.border,
           },
-        ]}>
+        ]}
+      >
         {leftIcon && (
           <Ionicons
             name={leftIcon}
@@ -72,25 +77,38 @@ export function Input({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
+          // keyboardType="phone-pad"
         />
         {secureTextEntry && (
           <TouchableOpacity
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-            style={styles.iconButton}>
+            style={styles.iconButton}
+          >
             <Ionicons
-              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+              name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
               size={20}
               color={theme.colors.textSecondary}
             />
           </TouchableOpacity>
         )}
         {rightIcon && !secureTextEntry && (
-          <TouchableOpacity onPress={onRightIconPress} style={styles.iconButton}>
-            <Ionicons name={rightIcon} size={20} color={theme.colors.textSecondary} />
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            style={styles.iconButton}
+          >
+            <Ionicons
+              name={rightIcon}
+              size={20}
+              color={theme.colors.textSecondary}
+            />
           </TouchableOpacity>
         )}
       </View>
-      {error && <Text style={[styles.error, { color: theme.colors.error }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.error, { color: theme.colors.error }]}>
+          {error}
+        </Text>
+      )}
     </View>
   );
 }
@@ -101,12 +119,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -126,4 +144,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-

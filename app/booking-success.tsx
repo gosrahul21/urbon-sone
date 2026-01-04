@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, SafeAreaView, Animated } from 'react-native';
+import { View, Text, Animated } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export default function BookingSuccessScreen() {
   const { serviceTitle, date, time, address } = useLocalSearchParams<{
@@ -45,7 +46,7 @@ export default function BookingSuccessScreen() {
   };
 
   return (
-    <SafeAreaView
+    <SafeAreaProvider
       className="flex-1"
       style={{ backgroundColor: theme.colors.background }}
     >
@@ -169,6 +170,6 @@ export default function BookingSuccessScreen() {
         </Animated.View>
 
       </View>
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   KeyboardAvoidingView,
@@ -28,6 +27,7 @@ import {
 } from '@/lib/data/services';
 import { bookingApi } from '@/lib/api/booking';
 import { useApp } from '@/contexts/AppContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 type BookingStep = 1 | 2 | 3 | 4 | 5;
 
@@ -674,7 +674,7 @@ export default function BookingScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <SafeAreaProvider style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View
         style={[
@@ -753,7 +753,7 @@ export default function BookingScreen() {
           />
         </View>
       </View>
-    </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
