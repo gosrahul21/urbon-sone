@@ -8,11 +8,23 @@ import { AppProvider } from "@/contexts/AppContext";
 import "../global.css";
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Platform, StatusBar } from "react-native";
+import * as Notifications from 'expo-notifications'
+
+import { makeRedirectUri } from "expo-auth-session";
+
+
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { isDark } = useTheme();
+
+// ... inside your component
+const redirectUri = makeRedirectUri({
+    // useProxy: true
+});
+
+console.log("Here is your redirect URI:", redirectUri);
 
   useEffect(() => {
     if (isLoading) return;
@@ -30,6 +42,29 @@ function RootLayoutNav() {
     //   router.replace("/(tabs)" as any);
     // }
   }, [isAuthenticated, isLoading, segments, router]);
+
+  // 1. Listen for the User Tapping the Notification
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+      
+      // Extract data from the notification payload
+      const data = response.notification.request.content.data;
+      const targetScreen = data?.screen; 
+
+      // Navigate if a screen is provided
+      if (targetScreen) {
+        console.log(`Navigating to ${targetScreen}`);
+        // Use the ref to navigate
+        // if (navigationRef.isReady()) {
+        //     navigationRef.navigate(targetScreen);
+
+        // }
+        router.replace(targetScreen as any)
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   return (
     <SafeAreaProvider>

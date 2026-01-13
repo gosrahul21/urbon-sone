@@ -28,6 +28,7 @@ import {
 import { bookingApi } from '@/lib/api/booking';
 import { useApp } from '@/contexts/AppContext';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { triggerNotification } from '@/helper/notification';
 
 type BookingStep = 1 | 2 | 3 | 4 | 5;
 
@@ -745,7 +746,8 @@ export default function BookingScreen() {
           )}
           <Button
             title={currentStep === 5 ? 'Confirm Booking' : 'Continue'}
-            onPress={handleNext}
+            // onPress={handleNext}
+            onPress={triggerNotification}
             loading={appLoading && currentStep === 5}
             disabled={appLoading}
             fullWidth={currentStep !== 5}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  ActivityIndicator, // Added for loading state
 } from "react-native";
+import * as Notifications from 'expo-notifications';
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/Button";
@@ -15,17 +17,69 @@ import { Input } from "@/components/ui/Input";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+// 1. Google Auth Imports
+import * as WebBrowser from "expo-web-browser";
+import * as Google from "expo-auth-session/providers/google";
+import { makeRedirectUri } from "expo-auth-session";
+import { triggerNotification } from "@/helper/notification";
+
+// 2. Initialize WebBrowser to handle redirects
+WebBrowser.maybeCompleteAuthSession();
+
 export default function LoginScreen() {
-  const { requestOtp, verifyOtp, isLoading, error, clearError } = useAuth();
+  // Assuming your AuthContext might have a method for social login, 
+  // otherwise we handle the logic here and pass the user to a general login method.
+  const { requestOtp, verifyOtp, isLoading, error, clearError, googleLogin } = useAuth();
   const { theme } = useTheme();
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [formErrors, setFormErrors] = useState<{
-    phone?: string;
-    otp?: string;
-  }>({});
+  const [formErrors, setFormErrors] = useState<{ phone?: string; otp?: string }>({});
+
+  // 3. Google Auth Configuration
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    // REPLACE these with your actual Client IDs from Google Cloud Console
+    androidClientId: "413773176963-fofbf9rfb5s49ljd6hb681be7hb8llcf.apps.googleusercontent.com",
+    iosClientId: "",
+    webClientId: "413773176963-f3r41461irvbjq00pboait6hd6aikf12.apps.googleusercontent.com",
+    redirectUri: "https://auth.expo.io/@gosrahul21/mobile",
+  });
+
+  console.log(makeRedirectUri({ useProxy: true }))
+  // 4. Handle Google Response
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response as any;
+      handleGoogleSignIn(authentication?.accessToken);
+    }
+  }, [response]);
+
+  // 5. Fetch Google User Data
+  const handleGoogleSignIn = async (accessToken: string) => {
+    try {
+      // Option A: Send the token directly to your backend (Recommended)
+      // await googleLogin(accessToken); 
+
+      // Option B: Fetch user info here, then send to backend
+      const response = await fetch(
+        "https://www.googleapis.com/userinfo/v2/me",
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }
+      );
+      const user = await response.json();
+      
+      console.log("Google User Data:", user); 
+      // Example output: { id: "...", email: "...", name: "...", picture: "..." }
+      
+      // Now call your Auth Context to save the user/session
+      // await loginWithSocialProvider(user); 
+      
+    } catch (error) {
+      console.log("Google Sign-In Error", error);
+    }
+  };
 
   const validatePhone = () => {
     if (!phone.trim()) {
@@ -67,6 +121,32 @@ export default function LoginScreen() {
       await verifyOtp({ phoneNo: phone, otp });
     } catch (error) {}
   };
+
+  // 2. Request Permissions on App Start
+  useEffect(() => {
+    async function requestPermissions() {
+      const { status } = await Notifications.getPermissionsAsync();
+      
+      if (status !== 'granted') {
+        const { status: newStatus } = await Notifications.requestPermissionsAsync();
+        if (newStatus !== 'granted') {
+          Alert.alert('Permission needed', 'Please enable notifications in settings');
+        }
+      }
+    }
+    
+    requestPermissions();
+
+    // Android specific: Create a channel (required for Android 8+)
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    }
+  }, []);
 
   return (
     <SafeAreaProvider
@@ -160,9 +240,9 @@ export default function LoginScreen() {
             <Button
               title={otpSent ? "Verify OTP" : "Send OTP"}
               onPress={otpSent ? handleVerifyOtp : handleSendOtp}
+              // onPress={triggerNotification}
               loading={isLoading}
               fullWidth
-              style={styles.loginButton}
             />
 
             {otpSent && (
@@ -199,19 +279,28 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* Google Sign-in (unchanged) */}
+            {/* 6. Updated Google Sign-in Button */}
             <View style={styles.socialButtons}>
               <TouchableOpacity
+                disabled={!request} // Disable if hooks aren't ready
+                onPress={() => {
+                  promptAsync();
+                }}
                 style={[
                   styles.socialButton,
                   { borderColor: theme.colors.border },
                 ]}
+                className="flex-row "
               >
-                <Ionicons
-                  name="logo-google"
-                  size={24}
-                  color={theme.colors.text}
-                />
+                 {/* Optional: Add a spinner if the Google button is loading */}
+                 <Ionicons
+                    name="logo-google"
+                    size={24}
+                    color={theme.colors.text}
+                  />
+                  {/* If you want text next to icon:  */}
+                  <Text style={{ color: theme.colors.text}}>Google</Text> 
+                 
               </TouchableOpacity>
             </View>
           </View>
@@ -255,13 +344,16 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { marginHorizontal: 16, fontSize: 14 },
-  socialButtons: { flexDirection: "row", justifyContent: "center" },
+  socialButtons: { flexDirection: "row", justifyContent: "center", gap:2, paddingHorizontal: 10 },
   socialButton: {
-    width: 56,
-    height: 56,
+    // width: 56, // Increased slightly for better touch area
+    // height: 56,
     borderRadius: 12,
     borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: 'transparent'
   },
 });
